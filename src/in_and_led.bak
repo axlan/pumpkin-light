@@ -1,0 +1,49 @@
+#include <Arduino.h>
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
+
+#include <ArduinoOTA.h>
+
+// https://www.instructables.com/USB-to-ESP-01-Board-Adapter-Modification/
+// https://www.instructables.com/How-to-use-the-ESP8266-01-pins/
+
+// 0 and 2 are the boot select pins
+// 1 is UART TX
+// 3 is UART RX
+
+// ESP01S has LED on pin 2, ESP01 has LED on TX.
+const int ledPin = 2;
+const int touchPin = 3;
+
+static volatile bool touch_triggered = false;
+static uint8_t led_pwm = 0;
+static unsigned long last_touch = 0;
+static auto status_out = HIGH;
+// Checks if motion was detected, sets LED HIGH and starts a timer
+IRAM_ATTR void on_touched() {
+  touch_triggered = true;
+}
+
+void setup() {
+  // set the LED as an output
+  pinMode(ledPin, OUTPUT);
+  pinMode(touchPin, INPUT);
+  digitalWrite(ledPin, HIGH);
+
+  attachInterrupt(digitalPinToInterrupt(touchPin), on_touched, CHANGE);
+}
+
+void loop() {
+  auto now = millis();
+  auto elapsed = now - last_touch;
+  if(digitalRead(touchPin) == LOW) {
+    touch_triggered = true;
+  }
+
+  if (touch_triggered && elapsed > 1000) {
+    led_pwm  += 128;
+    last_touch = now;
+    status_out = !status_out;
+    digitalWrite(ledPin ,status_out);
+  }
+  touch_triggered = false;
+}

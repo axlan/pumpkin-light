@@ -3,30 +3,44 @@
 
 #include <ArduinoOTA.h>
 
+// https://www.instructables.com/USB-to-ESP-01-Board-Adapter-Modification/
 // https://www.instructables.com/How-to-use-the-ESP8266-01-pins/
 
+// ESP01S
 // 192.168.1.149 for the client[MAC: 48:e7:29:6e:dc:9f].
 
 // 0 and 2 are the boot select pins
 // 1 is UART TX
 // 3 is UART RX
-// pin 2 turns LED on when 0
 
-constexpr int LED_PIN = 2;
+// ESP01S has LED on pin 2, ESP01 has LED on TX.
+const int ledPin = 2;
+const int touchPin = 3;
+const int pwmPin = 1;
 
-constexpr unsigned long UPDATE_PERIOD_MILLIS = 2000;
+static volatile bool touch_triggered = false;
+static uint8_t led_pwm = 0;
+static unsigned long last_touch = 0;
+static auto status_out = HIGH;
+// Checks if motion was detected, sets LED HIGH and starts a timer
+IRAM_ATTR void on_touched() {
+  touch_triggered = true;
+}
+
 
 void setup() {
-  // // set the LED as an output
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  pinMode(pwmPin, OUTPUT);
+  analogWrite(pwmPin, 0);
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, HIGH);
+  pinMode(touchPin, INPUT);
 
-  Serial.begin(115200);
+  //Serial.begin(115200);
 
   // WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
   // it is a good practice to make sure your code sets wifi mode how you want it.
 
-  //WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+  //WiFiManager, Local initialization. Once its business is done, there is no need to keep it around
   WiFiManager wm;
 
   // reset settings - wipe stored credentials for testing
@@ -38,9 +52,10 @@ void setup() {
   // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
   // then goes into a blocking loop awaiting configuration and will return success result
 
+  bool res;
   // res = wm.autoConnect(); // auto generated AP name from chipid
   // res = wm.autoConnect("AutoConnectAP"); // anonymous ap
-  bool res = wm.autoConnect("AutoConnectAP","password"); // password protected ap
+  res = wm.autoConnect("AutoConnectAP","password"); // password protected ap
 
   if(!res) {
       Serial.println("Failed to connect");
@@ -72,21 +87,29 @@ void setup() {
   delay(500);
 
   ArduinoOTA.begin();
+
+
+  attachInterrupt(digitalPinToInterrupt(touchPin), on_touched, FALLING);
 }
 
 void loop() {
-  static unsigned long last_update = 0;
-  static auto led_state = LOW;
   auto now = millis();
-  auto elapsed = now - last_update;
-  if (elapsed > UPDATE_PERIOD_MILLIS) {
-    led_state = !led_state;
-    digitalWrite(LED_PIN, led_state);
-    Serial.println(now);
-    last_update = now;
+  auto elapsed = now - last_touch;
+  if (touch_triggered && elapsed > 1000) {
+    led_pwm  += 64;
+    last_touch = now;
+    status_out = !status_out;
+    digitalWrite(ledPin ,status_out);
+    analogWrite(pwmPin, led_pwm);
   }
+  touch_triggered = false;
 
   ArduinoOTA.handle();
 
   delay(10);
+
+  // if (millis() > 1000 * 60) {
+  //   //Put module to sleep. Requires RESET to awake
+  //   ESP.deepSleep(0);
+  // }
 }

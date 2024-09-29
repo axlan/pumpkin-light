@@ -6,22 +6,17 @@
 // https://www.instructables.com/USB-to-ESP-01-Board-Adapter-Modification/
 // https://www.instructables.com/How-to-use-the-ESP8266-01-pins/
 
-// Ended up needing to connect C_DP to VCC and pull up GPIO 0/2. Wouldn't boot
-// when used same pull up for GPIO and C_DP.
-
-// Also had problems using TX as output during reset.
-// Also had problems leaving ground floating.
-
-// DHCP Server allocated IP address 192.168.1.139 for the client[MAC: bc:ff:4d:2a:8e:56].
+// ESP01S
+// 192.168.1.149 for the client[MAC: 48:e7:29:6e:dc:9f].
 
 // 0 and 2 are the boot select pins
 // 1 is UART TX
 // 3 is UART RX
 
-//const int ledPin = ;
+// ESP01S has LED on pin 2, ESP01 has LED on TX.
+const int ledPin = 2;
 const int touchPin = 3;
-// 30 min connected to reset.
-
+const int pwmPin = 1;
 
 static volatile bool touch_triggered = false;
 static uint8_t led_pwm = 0;
@@ -34,20 +29,18 @@ IRAM_ATTR void on_touched() {
 
 
 void setup() {
-  // // set the LED as an output
-  //pinMode(ledPin, OUTPUT);
+  pinMode(pwmPin, OUTPUT);
+  analogWrite(pwmPin, 0);
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, HIGH);
   pinMode(touchPin, INPUT);
-  //pinMode(2, INPUT); // unused
-  pinMode(1, OUTPUT); // TX
-  digitalWrite(1, status_out);
-  //digitalWrite(ledPin, LOW);
 
   //Serial.begin(115200);
 
   // WiFi.mode(WIFI_STA); // explicitly set mode, esp defaults to STA+AP
   // it is a good practice to make sure your code sets wifi mode how you want it.
 
-  //WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+  //WiFiManager, Local initialization. Once its business is done, there is no need to keep it around
   WiFiManager wm;
 
   // reset settings - wipe stored credentials for testing
@@ -103,16 +96,13 @@ void loop() {
   auto now = millis();
   auto elapsed = now - last_touch;
   if (touch_triggered && elapsed > 1000) {
-    led_pwm  += 128;
+    led_pwm  += 64;
     last_touch = now;
     status_out = !status_out;
+    digitalWrite(ledPin ,status_out);
+    analogWrite(led_pwm)
   }
   touch_triggered = false;
-
-
-  //analogWrite(ledPin, led_pwm);
-  digitalWrite(1 ,status_out);
-
 
   ArduinoOTA.handle();
 
