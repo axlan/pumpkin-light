@@ -9,14 +9,25 @@
 // ESP01S
 // 192.168.1.149 for the client[MAC: 48:e7:29:6e:dc:9f].
 
+// ESP01
+// 192.168.1.150 for the client[MAC: bc:ff:4d:2a:8e:56].
+
 // 0 and 2 are the boot select pins
 // 1 is UART TX
 // 3 is UART RX
 
 // ESP01S has LED on pin 2, ESP01 has LED on TX.
-const int ledPin = 2;
-const int touchPin = 3;
-const int pwmPin = 1;
+
+// ESP01S Test
+// const int ledPin = 2;
+// const int touchPin = 3;
+// const int pwmPin = 1;
+
+// ESP01 Test
+// Pull up on GPIO 2, LED on TX
+//#define STATUS_LED_PIN 1
+#define PWM_OUT_PIN 1
+#define TOUCH_IN_PIN 0
 
 static volatile bool touch_triggered = false;
 static uint8_t led_pwm = 0;
@@ -27,13 +38,16 @@ IRAM_ATTR void on_touched() {
   touch_triggered = true;
 }
 
-
 void setup() {
-  pinMode(pwmPin, OUTPUT);
-  analogWrite(pwmPin, 0);
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, HIGH);
-  pinMode(touchPin, INPUT);
+  #ifdef PWM_OUT_PIN
+  pinMode(PWM_OUT_PIN, OUTPUT);
+  analogWrite(PWM_OUT_PIN, 0);
+  #endif
+  #ifdef STATUS_LED_PIN
+  pinMode(STATUS_LED_PIN, OUTPUT);
+  digitalWrite(STATUS_LED_PIN, HIGH);
+  #endif
+  pinMode(TOUCH_IN_PIN, INPUT);
 
   //Serial.begin(115200);
 
@@ -88,8 +102,7 @@ void setup() {
 
   ArduinoOTA.begin();
 
-
-  attachInterrupt(digitalPinToInterrupt(touchPin), on_touched, FALLING);
+  attachInterrupt(digitalPinToInterrupt(TOUCH_IN_PIN), on_touched, FALLING);
 }
 
 void loop() {
@@ -99,8 +112,12 @@ void loop() {
     led_pwm  += 64;
     last_touch = now;
     status_out = !status_out;
-    digitalWrite(ledPin ,status_out);
-    analogWrite(pwmPin, led_pwm);
+    #ifdef PWM_OUT_PIN
+    analogWrite(PWM_OUT_PIN, led_pwm);
+    #endif
+    #ifdef STATUS_LED_PIN
+    digitalWrite(STATUS_LED_PIN, status_out);
+    #endif
   }
   touch_triggered = false;
 
